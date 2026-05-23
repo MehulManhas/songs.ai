@@ -1,0 +1,16 @@
+# --- Discord ---
+discord.py==2.4.0          # Slash commands + voice. 2.x is the modern API.
+
+# --- Audio / Lavalink ---
+wavelink==3.4.1            # discord.py-compatible Lavalink v4 client.
+
+# --- HTTP / async ---
+aiohttp==3.10.5            # Used by all REST clients (Jamendo, Subsonic, etc.)
+python-dotenv==1.0.1       # Loads the .env file at startup.
+
+# --- Encryption (for per-guild Navidrome credentials in /library setup) ---
+cryptography==43.0.1
+
+# --- Storage (per-guild Navidrome config + future user prefs) ---
+# Fine for hobby scale. For production: swap to PostgreSQL via asyncpg.
+aiosqlite==0.20.0

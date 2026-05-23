@@ -1,0 +1,27 @@
+# Run Lavalink locally for development.
+# `docker compose up -d` then start the bot with `python main.py`.
+#
+# For production, run Lavalink on its own VM/container (more memory)
+# and point the bot at it via the LAVALINK_HOST env var.
+
+services:
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    container_name: songs-lavalink
+    restart: unless-stopped
+    environment:
+      - _JAVA_OPTIONS=-Xmx1G
+      - SERVER_PORT=2333
+      - LAVALINK_SERVER_PASSWORD=youshallnotpass
+    volumes:
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml
+      - ./lavalink/plugins:/opt/Lavalink/plugins
+      - ./lavalink/logs:/opt/Lavalink/logs
+    ports:
+      - "2333:2333"
+    networks:
+      - songs
+
+networks:
+  songs:
+    driver: bridge

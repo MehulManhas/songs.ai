@@ -1,0 +1,50 @@
+# Lavalink v4 configuration - LEGAL-SOURCES-ONLY build.
+#
+# What's enabled / disabled and WHY:
+#
+#   YouTube       : DISABLED. Streaming YouTube audio violates their ToS.
+#                   The youtube-source plugin is intentionally not loaded.
+#   SoundCloud    : DISABLED. ToS forbids server-side scraping/re-streaming.
+#   Bandcamp      : DISABLED. Same posture - artist-friendly platform but
+#                   their ToS does not authorize bot re-streaming.
+#   Twitch/Vimeo  : DISABLED. Not relevant + ToS gray.
+#   HTTP          : ENABLED. This is the only source we need. All our
+#                   legal clients (Jamendo, Navidrome stream URLs,
+#                   Internet Archive direct files, radio-browser streams)
+#                   resolve to plain HTTP audio URLs that Lavalink plays
+#                   via its built-in MP3/OGG/FLAC/Opus decoders.
+#   Local         : DISABLED. We never play local server files.
+
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  # No plugins. The built-in HTTP source covers everything we need.
+  plugins: []
+  server:
+    password: "youshallnotpass"
+    sources:
+      youtube: false
+      bandcamp: false
+      soundcloud: false
+      twitch: false
+      vimeo: false
+      http: true
+      local: false
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: false
+    soundcloudSearchEnabled: false
+
+logging:
+  file:
+    path: ./logs/
+  level:
+    root: INFO
+    lavalink: INFO
