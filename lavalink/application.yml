@@ -23,7 +23,9 @@ lavalink:
   # No plugins. The built-in HTTP source covers everything we need.
   plugins: []
   server:
-    password: "youshallnotpass"
+    # Spring env-var interpolation: docker-compose passes LAVALINK_SERVER_PASSWORD;
+    # the fallback only fires if you run Lavalink standalone with no env set.
+    password: "${LAVALINK_SERVER_PASSWORD:youshallnotpass}"
     sources:
       youtube: false
       bandcamp: false

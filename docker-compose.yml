@@ -1,8 +1,18 @@
-# Run Lavalink locally for development.
-# `docker compose up -d` then start the bot with `python main.py`.
+# docker-compose.yml - production deployment for a 1 GB DigitalOcean droplet.
 #
-# For production, run Lavalink on its own VM/container (more memory)
-# and point the bot at it via the LAVALINK_HOST env var.
+# Two services on a private bridge network:
+#   lavalink  - audio engine (HTTP-source only, see lavalink/application.yml)
+#   bot       - the Python bot (built from ./Dockerfile)
+#
+# The bot reaches Lavalink via the docker DNS name `lavalink` on port 2333 -
+# nothing is published to the host. The only inbound port we expose to the
+# internet is SSH (handled by ufw, not docker).
+#
+# Run:
+#   docker compose up -d --build
+#
+# Update (used by the GitHub Actions deploy workflow):
+#   git pull && docker compose up -d --build && docker image prune -f
 
 services:
   lavalink:
@@ -10,17 +20,53 @@ services:
     container_name: songs-lavalink
     restart: unless-stopped
     environment:
-      - _JAVA_OPTIONS=-Xmx1G
+      # JAVA HEAP TUNING for the 1 GB droplet:
+      # Default Lavalink heap is 1 GB, which alone exceeds our droplet RAM.
+      # 384M is enough for the HTTP source (no YouTube plugin, no codecs
+      # beyond Lavaplayer's built-ins). Bump to 768M on a 2 GB droplet.
+      - _JAVA_OPTIONS=-Xmx384M -Xms256M
       - SERVER_PORT=2333
-      - LAVALINK_SERVER_PASSWORD=youshallnotpass
+      - LAVALINK_SERVER_PASSWORD=${LAVALINK_PASSWORD}
     volumes:
-      - ./lavalink/application.yml:/opt/Lavalink/application.yml
-      - ./lavalink/plugins:/opt/Lavalink/plugins
-      - ./lavalink/logs:/opt/Lavalink/logs
-    ports:
-      - "2333:2333"
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+      - lavalink-plugins:/opt/Lavalink/plugins
+      - lavalink-logs:/opt/Lavalink/logs
     networks:
       - songs
+    healthcheck:
+      # /version is a public Lavalink endpoint and 200s once the server has booted.
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2333/version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s   # Lavalink's first boot can take ~30s
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: songs-bot
+    restart: unless-stopped
+    depends_on:
+      lavalink:
+        condition: service_healthy   # don't start the bot until Lavalink answers /version
+    env_file:
+      - .env
+    environment:
+      # Override the .env values for the in-container network. The bot reaches
+      # Lavalink at the docker DNS name, not 127.0.0.1.
+      - LAVALINK_HOST=lavalink
+      - LAVALINK_PORT=2333
+      - SONGS_DB_PATH=/app/data/songs.sqlite
+    volumes:
+      - bot-data:/app/data
+    networks:
+      - songs
+
+volumes:
+  bot-data:           # SQLite (per-guild Navidrome creds, encrypted) survives rebuilds
+  lavalink-plugins:
+  lavalink-logs:
 
 networks:
   songs:

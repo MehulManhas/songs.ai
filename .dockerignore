@@ -1,0 +1,46 @@
+# Keep the build context small and the image clean.
+
+# Secrets - NEVER bake these into an image.
+.env
+.env.local
+*.pem
+
+# Local state that should not travel
+songs.sqlite
+songs.sqlite-journal
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cruft
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Editor / OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# VCS
+.git/
+.gitignore
+
+# Lavalink runtime artifacts (only the bot is in the image; lavalink is its own container)
+lavalink/plugins/
+lavalink/logs/
+lavalink/application.yml
+
+# CI / docs - not needed at runtime
+.github/
+DEPLOY.md
+README.md
+LICENSE
+*.log

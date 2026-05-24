@@ -16,6 +16,7 @@ Commands:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import aiohttp
@@ -30,7 +31,10 @@ from utils.navidrome_client import NavidromeClient
 
 log = logging.getLogger("songs.ai.library")
 
-DB_PATH = "songs.sqlite"
+# SONGS_DB_PATH is set by docker-compose to a path on a persistent volume
+# so the SQLite file survives container rebuilds. Falls back to a local file
+# when running outside Docker.
+DB_PATH = os.environ.get("SONGS_DB_PATH", "songs.sqlite")
 
 
 class Library(commands.Cog):

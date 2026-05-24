@@ -1,0 +1,83 @@
+# GitHub Actions: auto-deploy to the DigitalOcean droplet on every push to main.
+#
+# How it works:
+#   1. You push to main from your laptop.
+#   2. This workflow SSHes into the droplet using a deploy key stored as a
+#      GitHub Secret.
+#   3. On the droplet, it pulls the latest code, rebuilds the bot image,
+#      and recreates only the containers that actually changed.
+#
+# Required GitHub Secrets (Settings -> Secrets and variables -> Actions):
+#   DROPLET_HOST  - public IP or hostname of your droplet (e.g. 167.99.x.x)
+#   DROPLET_USER  - SSH user on the droplet (we use `deploy` per bootstrap.sh)
+#   DROPLET_SSH_KEY - the PRIVATE half of the deploy key (whole file contents,
+#                     including the BEGIN/END lines)
+#   DROPLET_PORT  - SSH port (optional; defaults to 22 if unset)
+#
+# Generating the deploy key (run on your laptop, NOT on the droplet):
+#   ssh-keygen -t ed25519 -C "songs-ai-deploy" -f songs_ai_deploy -N ""
+#   # Add the contents of songs_ai_deploy.pub to ~/.ssh/authorized_keys on
+#   # the droplet (deploy/bootstrap.sh shows where).
+#   # Paste the contents of songs_ai_deploy (the private one) into the
+#   # DROPLET_SSH_KEY secret.
+
+name: Deploy to droplet
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # also lets you trigger manually from the Actions tab
+
+concurrency:
+  # Cancel any in-flight deploy if a new push lands - we always want the
+  # latest commit to win.
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: ${{ secrets.DROPLET_PORT || '22' }}
+          # Fail the whole step if any line in the script fails.
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/songs.ai
+            echo "==> pulling latest code"
+            git fetch --quiet origin main
+            git reset --hard origin/main
+            echo "==> rebuilding and restarting containers"
+            docker compose up -d --build --remove-orphans
+            echo "==> pruning old images"
+            docker image prune -f
+            echo "==> container status"
+            docker compose ps
+
+      - name: Sanity-check the bot started
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: ${{ secrets.DROPLET_PORT || '22' }}
+          script: |
+            set -euo pipefail
+            cd ~/songs.ai
+            # Give the bot 20s to either crash or log "Logged in as".
+            sleep 20
+            if docker compose logs --tail=200 bot 2>&1 | grep -q "Logged in as"; then
+              echo "✅ Bot logged in to Discord"
+              exit 0
+            fi
+            echo "❌ Bot did not log in within 20s. Recent logs:"
+            docker compose logs --tail=80 bot
+            exit 1
